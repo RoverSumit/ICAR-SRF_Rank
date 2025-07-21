@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ICAR SRF Rank Predictor</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .hidden { display: none; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    input, select, button { margin: 5px; padding: 5px; }
+  </style>
+</head>
+<body>
+  <h1>ICAR SRF Rank Predictor</h1>
+  <div id="login-section">
+    <button onclick="signIn()">Login with Google (Admin Only)</button>
+  </div>
+
+  <div id="form-section">
+    <h3>Candidate Entry</h3>
+    <input type="text" id="name" placeholder="Name" />
+    <select id="subject">
+      <option value="GPB">GPB</option>
+      <option value="PATH">PATH</option>
+      <option value="SST">SST</option>
+      <option value="PGR">PGR</option>
+      <option value="MicB">MicB</option>
+      <option value="MBB">MBB</option>
+      <option value="BIOCHEM">BIOCHEM</option>
+      <option value="FSC">FSC</option>
+      <option value="VSC">VSC</option>
+      <option value="AGR">AGR</option>
+      <option value="SS">SS</option>
+    </select>
+    <select id="category">
+      <option value="General">General</option>
+      <option value="OBC">OBC</option>
+      <option value="SC">SC</option>
+      <option value="ST">ST</option>
+      <option value="EWS">EWS</option>
+    </select>
+    <input type="number" id="marks" placeholder="Marks (out of 480)" />
+    <button onclick="addCandidate()">Add Candidate</button>
+  </div>
+
+  <div id="admin-section" class="hidden">
+    <h2>Rank Lists (Admin View)</h2>
+    <div id="rank-tables"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBwohoYSHvR4mcBiZ9bLoeHbRz39psFU30",
+      authDomain: "icar-srf-rank.firebaseapp.com",
+      projectId: "icar-srf-rank",
+      storageBucket: "icar-srf-rank.firebasestorage.app",
+      messagingSenderId: "335346439768",
+      appId: "1:335346439768:web:61c11ce90b8f8e8ae29c2d",
+      measurementId: "G-XE28HTBNP0"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    const adminEmail = "sumitsatpathy2001@gmail.com"; // <-- Change to your Gmail address
+
+    function signIn() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).then(result => {
+        if (result.user.email === adminEmail) {
+          document.getElementById("admin-section").classList.remove("hidden");
+          loadRanks();
+        } else {
+          alert("You are signed in but not an admin.");
+        }
+        document.getElementById("login-section").classList.add("hidden");
+      }).catch(error => alert(error.message));
+    }
+
+    function addCandidate() {
+      const name = document.getElementById("name").value;
+      const subject = document.getElementById("subject").value;
+      const category = document.getElementById("category").value;
+      const marks = parseFloat(document.getElementById("marks").value);
+
+      if (!name || !subject || !category || isNaN(marks)) {
+        alert("Please fill all fields correctly.");
+        return;
+      }
+
+      db.collection("candidates").add({ name, subject, category, marks, timestamp: Date.now() })
+        .then(() => alert("Candidate added!"))
+        .catch(err => console.error("Error adding candidate:", err));
+    }
+
+    function loadRanks() {
+      db.collection("candidates").get().then(snapshot => {
+        const data = snapshot.docs.map(doc => doc.data());
+        const subjects = ["GPB", "PATH", "SST", "PGR", "MicB", "MBB", "BIOCHEM", "FSC", "VSC", "AGR", "SS"];
+        const tables = subjects.map(subject => {
+          const filtered = data.filter(d => d.subject === subject).sort((a, b) => b.marks - a.marks);
+          return `<h3>${subject}</h3>` +
+            `<table><tr><th>Rank</th><th>Name</th><th>Category</th><th>Marks</th></tr>` +
+            filtered.map((d, i) => `<tr><td>${i + 1}</td><td>${d.name}</td><td>${d.category}</td><td>${d.marks}</td></tr>`).join("") +
+            `</table>`;
+        });
+        document.getElementById("rank-tables").innerHTML = tables.join("<br>");
+      });
+    }
+  </script>
+</body>
+</html>
